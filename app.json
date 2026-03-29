@@ -9,7 +9,10 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "TryME records your answer audio during oral exam simulation calls."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -18,8 +21,13 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
+      "permissions": [
+        "RECORD_AUDIO",
+        "RECORD_AUDIO"
+      ],
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.anonymous.TryME"
     },
     "web": {
       "output": "static",
@@ -27,6 +35,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-document-picker",
       [
         "expo-splash-screen",
         {
@@ -41,7 +50,7 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": true,
+      "typedRoutes": false,
       "reactCompiler": true
     }
   }
