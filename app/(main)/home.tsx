@@ -2,43 +2,43 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '@/src/components/PrimaryButton';
 import { colors, fontFamily } from '@/src/constants/uiTheme';
 import { useApp } from '@/src/context/AppContext';
 
-const examiners = [
-  { name: 'Mila Novak', subject: 'Biology', tone: ['#7CB6FF', '#5F86FF'] as const },
-  { name: 'David Klein', subject: 'History', tone: ['#9ECFA3', '#53A875'] as const },
-  { name: 'Nora Hale', subject: 'Law', tone: ['#F4B67D', '#E07948'] as const },
-  { name: 'Mia Torres', subject: 'Medicine', tone: ['#CBABFF', '#8460E9'] as const },
-];
-
-function routeForStage(stage: ReturnType<typeof useApp>['stage']) {
-  if (stage === 'auth') {
-    return '/';
+function qualityCopy(label: 'strong' | 'okay' | 'needs_attention') {
+  if (label === 'strong') {
+    return 'Strong extraction';
   }
-  if (stage === 'paywall') {
-    return '/paywall';
+  if (label === 'okay') {
+    return 'Usable extraction';
   }
-  if (stage === 'goal') {
-    return '/goal';
-  }
-  return '/home';
+  return 'Needs cleanup';
 }
 
-export default function HomeTabScreen() {
-  const { loading, stage, state, remainingCalls, freeCallLimit, registerCallStart } = useApp();
+export default function WorkspaceScreen() {
+  const {
+    loading,
+    stage,
+    state,
+    currentDocument,
+    remainingCalls,
+    freeCallLimit,
+    createAccount,
+    registerCallStart,
+    recordStudyAction,
+  } = useApp();
 
   useEffect(() => {
-    if (!loading && stage !== 'home') {
-      router.replace(routeForStage(stage));
+    if (!loading && stage !== 'workspace') {
+      router.replace('/');
     }
   }, [loading, stage]);
 
-  if (loading || stage !== 'home') {
+  if (loading || stage !== 'workspace') {
     return (
       <View style={styles.loaderWrap}>
         <ActivityIndicator size="large" color={colors.primary} />
@@ -46,100 +46,183 @@ export default function HomeTabScreen() {
     );
   }
 
+  if (!currentDocument) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <ScrollView contentContainerStyle={styles.emptyContent}>
+          <Text style={styles.welcomeTitle}>Your workspace is ready for its first document.</Text>
+          <Text style={styles.emptyBody}>
+            The new shell is document-first, so the fastest next step is to upload notes and let the app create a study pack around them.
+          </Text>
+          <PrimaryButton
+            label="Open library"
+            onPress={() => router.push('/library')}
+            icon={<Ionicons name="folder-open-outline" size={20} color="#FFFFFF" />}
+          />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  const profileName = state.profile?.firstName ?? 'Scholar';
+  const pack = currentDocument.studyPack;
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={['#E8EEFF', '#EEF8FF']} style={styles.topArea}>
-          <View style={styles.searchRow}>
-            <View style={styles.searchBox}>
-              <Ionicons name="search-outline" size={20} color="#7F8CB4" />
-              <Text style={styles.searchText}>Search study sets</Text>
+        <LinearGradient colors={['#FFF3D6', '#F7F1E3', '#E3EFE7']} style={styles.heroCard}>
+          <View style={styles.heroTopRow}>
+            <View>
+              <Text style={styles.heroEyebrow}>Active workspace</Text>
+              <Text style={styles.heroTitle}>{profileName}, your document is ready.</Text>
             </View>
-            <View style={styles.profileCircle}>
-              <Text style={styles.profileLetter}>M</Text>
+            <View style={styles.mascotBubble}>
+              <MaterialCommunityIcons name="robot-love-outline" size={30} color="#FFF7ED" />
             </View>
           </View>
 
-          <Text style={styles.heading}>Recents</Text>
+          <Text style={styles.heroBody}>{pack.overview}</Text>
 
-          <View style={styles.recentCard}>
-            <View style={styles.recentIcon}>
-              <MaterialCommunityIcons name="file-document-outline" size={22} color="#1E8BCE" />
+          <View style={styles.heroMetaRow}>
+            <View style={styles.metaChip}>
+              <Text style={styles.metaChipText}>{currentDocument.fileType.toUpperCase()}</Text>
             </View>
-            <View style={styles.recentTextWrap}>
-              <Text style={styles.recentTitle}>{state.document?.name ?? 'No notes selected yet'}</Text>
-                <Text style={styles.recentSub}>
-                  {state.document
-                    ? `${state.document.fileType.toUpperCase()} • ${
-                        state.document.extractedText.split(/\s+/).length
-                      } words`
-                  : 'Use Library tab to upload .docx/.pdf/.doc or paste plain text'}
-                </Text>
-              </View>
+            <View style={styles.metaChip}>
+              <Text style={styles.metaChipText}>{currentDocument.wordCount} words</Text>
             </View>
+            <View style={styles.metaChip}>
+              <Text style={styles.metaChipText}>{qualityCopy(pack.qualityLabel)}</Text>
+            </View>
+          </View>
         </LinearGradient>
 
-        <Text style={styles.sectionTitle}>Your Examiners</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.peopleRow}>
-          {examiners.map((examiner) => (
-            <View style={styles.personCard} key={examiner.name}>
-              <LinearGradient colors={[...examiner.tone]} style={styles.personAvatar}>
-                <Text style={styles.personInitial}>
-                  {examiner.name
-                    .split(' ')
-                    .map((part) => part[0])
-                    .slice(0, 2)
-                    .join('')}
-                </Text>
-              </LinearGradient>
-              <Text style={styles.personName}>{examiner.name}</Text>
-              <Text style={styles.personSubject}>{examiner.subject}</Text>
+        {state.accountStatus === 'guest' ? (
+          <View style={styles.bannerCard}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.bannerTitle}>Save your progress after this first value moment.</Text>
+              <Text style={styles.bannerBody}>Create an account to keep your study history, sync future subscriptions, and protect your library.</Text>
             </View>
-          ))}
-        </ScrollView>
+            <View style={styles.bannerActions}>
+              <PrimaryButton
+                label="Apple"
+                variant="secondary"
+                onPress={() => createAccount('apple')}
+                icon={<Ionicons name="logo-apple" size={18} color={colors.ink} />}
+              />
+              <PrimaryButton
+                label="Google"
+                variant="ghost"
+                onPress={() => createAccount('google')}
+              />
+            </View>
+          </View>
+        ) : null}
 
-        <View style={styles.practiceCard}>
-          <Text style={styles.practiceTitle}>Oral Exam Call</Text>
-          <Text style={styles.practiceBody}>
-            {state.document
-              ? 'Your selected notes are ready. Start the call and answer the examiner live.'
-              : 'Select notes first in Library tab, then return here to start a live oral simulation.'}
-          </Text>
-          <Text style={styles.callsLine}>
-            {state.plan === 'premium'
-              ? 'Premium plan: unlimited calls.'
-              : `${remainingCalls}/${freeCallLimit} calls left this month.`}
-          </Text>
-
-          <View style={styles.ctaGroup}>
-            <PrimaryButton
-              label="Test Me"
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Document action hub</Text>
+          <View style={styles.actionGrid}>
+            <Pressable
+              style={styles.actionCard}
               onPress={() => {
-                if (!state.document) {
-                  Alert.alert('No notes selected', 'Open Library tab to upload or paste notes first.');
-                  return;
-                }
+                router.push({
+                  pathname: '/quiz',
+                  params: {
+                    docId: currentDocument.id,
+                    difficulty: 'medium',
+                    count: '10',
+                  },
+                });
+              }}>
+              <Ionicons name="help-circle-outline" size={24} color={colors.primary} />
+              <Text style={styles.actionTitle}>Quiz</Text>
+              <Text style={styles.actionBody}>Challenge the generated bank and expose weak concepts.</Text>
+            </Pressable>
 
+            <Pressable
+              style={styles.actionCard}
+              onPress={() => {
+                recordStudyAction('flashcards', pack.keyConcepts.slice(-2));
+              }}>
+              <Ionicons name="albums-outline" size={24} color={colors.primary} />
+              <Text style={styles.actionTitle}>Flashcards</Text>
+              <Text style={styles.actionBody}>Use the deck preview below as the first spaced-repetition pass.</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.actionCard}
+              onPress={() => {
+                recordStudyAction('notes', pack.weakTopicSuggestions.slice(0, 2));
+              }}>
+              <Ionicons name="document-text-outline" size={24} color={colors.primary} />
+              <Text style={styles.actionTitle}>Notes / Study Script</Text>
+              <Text style={styles.actionBody}>Read the summary, key concepts, and oral prompts before testing yourself.</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.actionCard}
+              onPress={() => {
                 const allowed = registerCallStart();
                 if (!allowed) {
-                  Alert.alert(
-                    'Call limit reached',
-                    'Free users have 3 calls per month. Upgrade plan to remove the limit.',
-                  );
+                  Alert.alert('Free call limit reached', `Free users get ${freeCallLimit} calls per month. Upgrade to keep going.`);
+                  router.push('/paywall');
                   return;
                 }
 
                 router.push('/call');
-              }}
-              icon={<Ionicons name="call-outline" size={20} color="#FFFFFF" />}
-            />
+              }}>
+              <Ionicons name="call-outline" size={24} color={colors.primary} />
+              <Text style={styles.actionTitle}>AI call</Text>
+              <Text style={styles.actionBody}>
+                {state.plan === 'premium' ? 'Unlimited call access is active.' : `${remainingCalls}/${freeCallLimit} calls left this month.`}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
 
-            <PrimaryButton
-              label="Go to Library"
-              variant="secondary"
-              onPress={() => router.push('/library')}
-              icon={<Ionicons name="folder-outline" size={20} color={colors.inkMuted} />}
-            />
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Study pack</Text>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Key concepts</Text>
+            {pack.keyConcepts.map((item) => (
+              <View key={item} style={styles.listRow}>
+                <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                <Text style={styles.listText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Likely oral-exam questions</Text>
+            {pack.oralExamQuestions.map((item) => (
+              <View key={item} style={styles.questionCard}>
+                <Text style={styles.questionText}>{item}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Flashcard preview</Text>
+          {pack.flashcards.map((flashcard) => (
+            <View key={flashcard.id} style={styles.flashcard}>
+              <View style={styles.flashcardTop}>
+                <Text style={styles.flashcardFront}>{flashcard.front}</Text>
+                <Text style={styles.flashcardDue}>{flashcard.dueLabel}</Text>
+              </View>
+              <Text style={styles.flashcardBack}>{flashcard.back}</Text>
+            </View>
+          ))}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Recommended next step</Text>
+          <View style={styles.recommendationCard}>
+            <Text style={styles.recommendationTitle}>Focus on your weaker edges before the next oral call.</Text>
+            {pack.weakTopicSuggestions.map((item) => (
+              <Text key={item} style={styles.recommendationItem}>
+                {`\u2022 ${item}`}
+              </Text>
+            ))}
           </View>
         </View>
       </ScrollView>
@@ -150,167 +233,226 @@ export default function HomeTabScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#F4F7FF',
+    backgroundColor: colors.page,
   },
   content: {
-    paddingBottom: 24,
+    padding: 20,
+    paddingBottom: 28,
+    gap: 18,
   },
-  topArea: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 24,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  searchBox: {
-    flex: 1,
-    height: 52,
-    borderRadius: 999,
-    backgroundColor: '#FFFFFF',
+  heroCard: {
+    borderRadius: 30,
+    padding: 22,
+    gap: 14,
     borderWidth: 1,
-    borderColor: '#E5EAF7',
+    borderColor: '#E3DACA',
+  },
+  heroTopRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 16,
-  },
-  searchText: {
-    color: '#7A86AD',
-    fontFamily: fontFamily.body,
-    fontSize: 18,
-  },
-  profileCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 999,
-    backgroundColor: '#8CA1B1',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileLetter: {
-    color: '#FFFFFF',
-    fontFamily: fontFamily.subheading,
-    fontSize: 24,
-  },
-  heading: {
-    marginTop: 24,
-    color: colors.ink,
-    fontFamily: fontFamily.heading,
-    fontSize: 40,
-  },
-  recentCard: {
-    marginTop: 14,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E5EAF7',
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
   },
-  recentIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
-    backgroundColor: '#EAF6FF',
+  heroEyebrow: {
+    color: '#7D6A45',
+    fontFamily: fontFamily.bodySemi,
+    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  heroTitle: {
+    marginTop: 6,
+    color: colors.ink,
+    fontFamily: fontFamily.heading,
+    fontSize: 30,
+    lineHeight: 36,
+    maxWidth: '82%',
+  },
+  mascotBubble: {
+    width: 58,
+    height: 58,
+    borderRadius: 999,
+    backgroundColor: '#1F6C68',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  recentTextWrap: {
-    flex: 1,
+  heroBody: {
+    color: colors.inkMuted,
+    fontFamily: fontFamily.body,
+    fontSize: 17,
+    lineHeight: 24,
   },
-  recentTitle: {
+  heroMetaRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  metaChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  metaChipText: {
+    color: '#395A56',
+    fontFamily: fontFamily.bodySemi,
+    fontSize: 13,
+  },
+  bannerCard: {
+    flexDirection: 'row',
+    gap: 16,
+    padding: 18,
+    borderRadius: 22,
+    backgroundColor: '#FFF8E8',
+    borderWidth: 1,
+    borderColor: '#E8D6AB',
+  },
+  bannerTitle: {
+    color: colors.ink,
+    fontFamily: fontFamily.subheading,
+    fontSize: 18,
+  },
+  bannerBody: {
+    marginTop: 4,
+    color: colors.inkMuted,
+    fontFamily: fontFamily.body,
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  bannerActions: {
+    justifyContent: 'center',
+    width: 110,
+    gap: 8,
+  },
+  section: {
+    gap: 12,
+  },
+  sectionTitle: {
+    color: colors.ink,
+    fontFamily: fontFamily.heading,
+    fontSize: 24,
+  },
+  actionGrid: {
+    gap: 12,
+  },
+  actionCard: {
+    borderRadius: 22,
+    padding: 18,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.line,
+    gap: 8,
+  },
+  actionTitle: {
+    color: colors.ink,
+    fontFamily: fontFamily.subheading,
+    fontSize: 19,
+  },
+  actionBody: {
+    color: colors.inkMuted,
+    fontFamily: fontFamily.body,
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  card: {
+    borderRadius: 22,
+    padding: 18,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.line,
+    gap: 10,
+  },
+  cardTitle: {
     color: colors.ink,
     fontFamily: fontFamily.subheading,
     fontSize: 20,
   },
-  recentSub: {
-    marginTop: 2,
-    color: colors.inkMuted,
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  listText: {
+    flex: 1,
+    color: colors.ink,
     fontFamily: fontFamily.body,
     fontSize: 16,
+    lineHeight: 22,
   },
-  sectionTitle: {
-    marginTop: 18,
-    marginHorizontal: 20,
+  questionCard: {
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: '#F8F4EC',
+  },
+  questionText: {
+    color: colors.ink,
+    fontFamily: fontFamily.body,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  flashcard: {
+    borderRadius: 22,
+    padding: 18,
+    backgroundColor: '#17345F',
+    gap: 10,
+  },
+  flashcardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  flashcardFront: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontFamily: fontFamily.subheading,
+    fontSize: 18,
+  },
+  flashcardDue: {
+    color: '#F4D37C',
+    fontFamily: fontFamily.bodySemi,
+    fontSize: 13,
+  },
+  flashcardBack: {
+    color: '#D9E4F4',
+    fontFamily: fontFamily.body,
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  recommendationCard: {
+    borderRadius: 22,
+    padding: 18,
+    backgroundColor: '#E7F0EA',
+    borderWidth: 1,
+    borderColor: '#C9DDD5',
+    gap: 8,
+  },
+  recommendationTitle: {
+    color: colors.ink,
+    fontFamily: fontFamily.subheading,
+    fontSize: 19,
+  },
+  recommendationItem: {
+    color: '#305650',
+    fontFamily: fontFamily.body,
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  emptyContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    padding: 20,
+    gap: 14,
+  },
+  welcomeTitle: {
     color: colors.ink,
     fontFamily: fontFamily.heading,
     fontSize: 32,
+    lineHeight: 38,
   },
-  peopleRow: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    gap: 12,
-  },
-  personCard: {
-    width: 132,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E5EAF7',
-    padding: 12,
-    alignItems: 'center',
-  },
-  personAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  personInitial: {
-    color: '#FFFFFF',
-    fontFamily: fontFamily.heading,
-    fontSize: 22,
-  },
-  personName: {
-    marginTop: 9,
-    color: colors.ink,
-    fontFamily: fontFamily.subheading,
-    textAlign: 'center',
-    fontSize: 15,
-  },
-  personSubject: {
-    marginTop: 3,
-    color: colors.inkMuted,
-    fontFamily: fontFamily.body,
-    fontSize: 14,
-  },
-  practiceCard: {
-    marginHorizontal: 20,
-    marginTop: 6,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E5EAF7',
-    padding: 18,
-    gap: 10,
-  },
-  practiceTitle: {
-    color: colors.ink,
-    fontFamily: fontFamily.subheading,
-    fontSize: 28,
-  },
-  practiceBody: {
+  emptyBody: {
     color: colors.inkMuted,
     fontFamily: fontFamily.body,
     fontSize: 18,
-    lineHeight: 25,
-  },
-  callsLine: {
-    color: '#5562A0',
-    fontFamily: fontFamily.bodySemi,
-    fontSize: 16,
-  },
-  ctaGroup: {
-    gap: 10,
-    marginTop: 4,
+    lineHeight: 26,
   },
   loaderWrap: {
     flex: 1,

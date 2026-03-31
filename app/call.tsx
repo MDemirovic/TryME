@@ -4,23 +4,15 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import * as Speech from 'expo-speech';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CallVisualizer } from '@/src/components/CallVisualizer';
 import { colors, fontFamily } from '@/src/constants/uiTheme';
 import { useApp } from '@/src/context/AppContext';
 import { transcribeAudioAsync, startRecordingAsync, stopRecordingAsync } from '@/src/services/audioService';
-import { generateExamTurn } from '@/src/services/examEngine';
-import type { ConversationTurn } from '@/src/types';
+import { generateCallSummary, generateExamTurn } from '@/src/services/examEngine';
+import type { CallSummary, ConversationTurn } from '@/src/types';
 
 function formatDuration(totalSeconds: number): string {
   const minutes = Math.floor(totalSeconds / 60)
@@ -33,31 +25,37 @@ function formatDuration(totalSeconds: number): string {
 }
 
 export default function CallScreen() {
-  const { loading, state } = useApp();
-  const document = state.document;
+  const { stage, currentDocument, recordStudyAction } = useApp();
+  const document = currentDocument;
 
   const historyRef = useRef<ConversationTurn[]>([]);
+  const voiceEnabledRef = useRef(true);
+  const startRef = useRef<number>(Date.now());
+  const completionLoggedRef = useRef(false);
 
   const [connecting, setConnecting] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
-
-  const [assistantLine, setAssistantLine] = useState('Connecting to your examiner...');
+  const [assistantLine, setAssistantLine] = useState('Connecting to your document-grounded examiner...');
   const [lastAnswer, setLastAnswer] = useState('');
   const [answerDraft, setAnswerDraft] = useState('');
   const [answerSheetVisible, setAnswerSheetVisible] = useState(false);
-
   const [recording, setRecording] = useState<Audio.Recording | null>(null);
   const [transcribing, setTranscribing] = useState(false);
-
   const [elapsed, setElapsed] = useState(0);
-  const startRef = useRef<number>(Date.now());
-  const voiceEnabledRef = useRef(true);
+  const [ended, setEnded] = useState(false);
+  const [summary, setSummary] = useState<CallSummary | null>(null);
 
   useEffect(() => {
     voiceEnabledRef.current = voiceEnabled;
   }, [voiceEnabled]);
+
+  useEffect(() => {
+    if (stage !== 'workspace' || !document) {
+      router.replace('/home');
+    }
+  }, [document, stage]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -66,20 +64,6 @@ export default function CallScreen() {
 
     return () => clearInterval(timer);
   }, []);
-
-  const endCall = useCallback(() => {
-    Speech.stop();
-    if (recording) {
-      recording.stopAndUnloadAsync().catch(() => undefined);
-    }
-    router.replace('/home');
-  }, [recording]);
-
-  useEffect(() => {
-    if (!loading && !document) {
-      router.replace('/home');
-    }
-  }, [loading, document]);
 
   const deliverAssistantLine = useCallback((line: string, shouldSpeak = true) => {
     setAssistantLine(line);
@@ -120,18 +104,16 @@ export default function CallScreen() {
           return;
         }
 
-        const initHistory: ConversationTurn[] = [{ role: 'assistant', content: firstTurn }];
-        historyRef.current = initHistory;
+        historyRef.current = [{ role: 'assistant', content: firstTurn }];
         setConnecting(false);
         deliverAssistantLine(firstTurn, true);
       } catch {
-        if (mounted) {
-          setConnecting(false);
-          deliverAssistantLine(
-            'I am ready. Please answer when you are ready, and I will continue your oral exam practice.',
-            true,
-          );
+        if (!mounted) {
+          return;
         }
+
+        setConnecting(false);
+        deliverAssistantLine('I am ready. Answer from your notes, and I will keep the oral exam moving.', true);
       } finally {
         if (mounted) {
           setProcessing(false);
@@ -139,7 +121,7 @@ export default function CallScreen() {
       }
     }
 
-    beginCall();
+    void beginCall();
 
     return () => {
       mounted = false;
@@ -147,9 +129,52 @@ export default function CallScreen() {
     };
   }, [deliverAssistantLine, document?.extractedText]);
 
+  const statusText = useMemo(() => {
+    if (connecting) {
+      return 'Connecting';
+    }
+    if (transcribing) {
+      return 'Fallback input mode';
+    }
+    if (processing) {
+      return 'Thinking';
+    }
+    if (recording) {
+      return 'Listening';
+    }
+    if (speaking) {
+      return 'Assistant speaking';
+    }
+    return 'Waiting for your answer';
+  }, [connecting, processing, recording, speaking, transcribing]);
+
+  const finishCall = useCallback(() => {
+    if (!document) {
+      router.replace('/home');
+      return;
+    }
+
+    Speech.stop();
+    if (recording) {
+      recording.stopAndUnloadAsync().catch(() => undefined);
+    }
+
+    const nextSummary = generateCallSummary(document.extractedText, historyRef.current);
+    setSummary(nextSummary);
+    setEnded(true);
+  }, [document, recording]);
+
+  const leaveWithSummary = useCallback(() => {
+    if (summary && !completionLoggedRef.current) {
+      recordStudyAction('call', summary.weakConcepts);
+      completionLoggedRef.current = true;
+    }
+    router.replace('/home');
+  }, [recordStudyAction, summary]);
+
   const submitAnswer = useCallback(
     async (raw: string) => {
-      if (!document?.extractedText || processing || connecting) {
+      if (!document?.extractedText || processing || connecting || ended) {
         return;
       }
 
@@ -164,37 +189,30 @@ export default function CallScreen() {
       setProcessing(true);
       setSpeaking(false);
 
-      const withUser: ConversationTurn[] = [...historyRef.current, { role: 'user', content: cleaned }];
-      historyRef.current = withUser;
+      const nextHistory = [...historyRef.current, { role: 'user', content: cleaned } as ConversationTurn];
+      historyRef.current = nextHistory;
 
       try {
         const assistantTurn = await generateExamTurn({
           mode: 'followup',
           notes: document.extractedText,
-          history: withUser,
+          history: nextHistory,
           userAnswer: cleaned,
         });
 
-        const nextHistory = [
-          ...withUser,
-          { role: 'assistant', content: assistantTurn } as ConversationTurn,
-        ];
-        historyRef.current = nextHistory;
+        historyRef.current = [...nextHistory, { role: 'assistant', content: assistantTurn }];
         deliverAssistantLine(assistantTurn, true);
       } catch {
-        deliverAssistantLine(
-          'I did not catch that fully. Please try answering again based on your notes.',
-          true,
-        );
+        deliverAssistantLine('I need a little more detail from the document. Try one more answer grounded in your notes.', true);
       } finally {
         setProcessing(false);
       }
     },
-    [connecting, deliverAssistantLine, document?.extractedText, processing],
+    [connecting, deliverAssistantLine, document?.extractedText, ended, processing],
   );
 
   const toggleRecording = useCallback(async () => {
-    if (processing || connecting || transcribing) {
+    if (processing || connecting || transcribing || ended) {
       return;
     }
 
@@ -209,17 +227,11 @@ export default function CallScreen() {
           await submitAnswer(transcript);
         } else {
           setAnswerSheetVisible(true);
-          Alert.alert(
-            'Transcription unavailable',
-            'Voice transcript requires EXPO_PUBLIC_OPENAI_API_KEY. Type your answer and send.',
-          );
+          Alert.alert('Typed fallback active', 'Voice transcription is disabled in the client prototype, so type your answer and send it.');
         }
       } catch (error) {
         setRecording(null);
-        Alert.alert(
-          'Recording error',
-          error instanceof Error ? error.message : 'Could not process your recording.',
-        );
+        Alert.alert('Recording issue', error instanceof Error ? error.message : 'Could not process the recording.');
       } finally {
         setTranscribing(false);
       }
@@ -227,37 +239,54 @@ export default function CallScreen() {
     }
 
     try {
-      const activeRecording = await startRecordingAsync();
-      setRecording(activeRecording);
+      const nextRecording = await startRecordingAsync();
+      setRecording(nextRecording);
     } catch (error) {
-      Alert.alert(
-        'Microphone unavailable',
-        error instanceof Error ? error.message : 'Could not start recording.',
-      );
+      Alert.alert('Microphone unavailable', error instanceof Error ? error.message : 'Could not start recording.');
     }
-  }, [connecting, processing, recording, submitAnswer, transcribing]);
+  }, [connecting, ended, processing, recording, submitAnswer, transcribing]);
 
-  const statusText = useMemo(() => {
-    if (connecting) {
-      return 'Connecting...';
-    }
-    if (transcribing) {
-      return 'Transcribing your answer...';
-    }
-    if (processing) {
-      return 'Examiner is thinking...';
-    }
-    if (recording) {
-      return 'Recording your answer...';
-    }
-    return 'Listening for your answer';
-  }, [connecting, processing, recording, transcribing]);
-
-  if (loading || !document) {
+  if (!document) {
     return (
       <View style={styles.loaderWrap}>
         <ActivityIndicator size="large" color="#FFFFFF" />
       </View>
+    );
+  }
+
+  if (ended && summary) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <LinearGradient colors={[colors.callBgA, colors.callBgB]} style={styles.page}>
+          <View style={styles.summaryCard}>
+            <Text style={styles.summaryTitle}>Call summary</Text>
+            <Text style={styles.summaryBody}>Only the summary is kept in this prototype flow, not the raw audio or a full transcript.</Text>
+
+            <View style={styles.summarySection}>
+              <Text style={styles.summarySectionTitle}>Strengths</Text>
+              {summary.strengths.map((item) => (
+                <Text key={item} style={styles.summaryItem}>{`\u2022 ${item}`}</Text>
+              ))}
+            </View>
+
+            <View style={styles.summarySection}>
+              <Text style={styles.summarySectionTitle}>Weak concepts</Text>
+              {summary.weakConcepts.map((item) => (
+                <Text key={item} style={styles.summaryItem}>{`\u2022 ${item}`}</Text>
+              ))}
+            </View>
+
+            <View style={styles.summarySection}>
+              <Text style={styles.summarySectionTitle}>Next move</Text>
+              <Text style={styles.summaryItem}>{summary.coachNote}</Text>
+            </View>
+
+            <Pressable style={styles.primaryButton} onPress={leaveWithSummary}>
+              <Text style={styles.primaryButtonText}>Return to workspace</Text>
+            </Pressable>
+          </View>
+        </LinearGradient>
+      </SafeAreaView>
     );
   }
 
@@ -266,68 +295,63 @@ export default function CallScreen() {
       <LinearGradient colors={[colors.callBgA, colors.callBgB]} style={styles.page}>
         <View style={styles.topRow}>
           <Text style={styles.topText}>{formatDuration(elapsed)}</Text>
-          <Text style={styles.topText}>Oral Exam Call</Text>
+          <Text style={styles.topText}>AI oral exam call</Text>
         </View>
 
         <View style={styles.avatarWrap}>
-          <LinearGradient colors={['#B183FF', '#6742E0']} style={styles.avatarBubble}>
-            <MaterialCommunityIcons name="account-voice" size={88} color="#F7EEFF" />
+          <LinearGradient colors={['#F0B44C', '#D86C4D']} style={styles.avatarBubble}>
+            <MaterialCommunityIcons name="account-voice" size={86} color="#FFF8EE" />
           </LinearGradient>
-          <CallVisualizer active={speaking || processing || transcribing} />
+          <CallVisualizer active={speaking || processing || transcribing || Boolean(recording)} />
         </View>
 
         <View style={styles.panel}>
           <Text style={styles.status}>{statusText}</Text>
           <Text style={styles.promptText}>{assistantLine}</Text>
-          {lastAnswer ? (
-            <Text style={styles.lastAnswer}>
-              You: {lastAnswer.length > 120 ? `${lastAnswer.slice(0, 120)}...` : lastAnswer}
-            </Text>
-          ) : null}
+          {lastAnswer ? <Text style={styles.lastAnswer}>You: {lastAnswer}</Text> : null}
         </View>
 
         <View style={styles.controls}>
           <Pressable
-            onPress={() => {
-              setVoiceEnabled((prev) => !prev);
-            }}
-            style={[styles.roundButton, voiceEnabled ? styles.roundNeutral : styles.roundOff]}>
+            onPress={() => setVoiceEnabled((prev) => !prev)}
+            style={[styles.roundButton, voiceEnabled ? styles.roundNeutral : styles.roundDim]}>
             <Ionicons name={voiceEnabled ? 'volume-high' : 'volume-mute'} size={24} color="#FFFFFF" />
           </Pressable>
 
-          <Pressable
-            onPress={() => setAnswerSheetVisible((prev) => !prev)}
-            style={[styles.roundButton, styles.roundNeutral]}>
+          <Pressable onPress={() => setAnswerSheetVisible((prev) => !prev)} style={[styles.roundButton, styles.roundNeutral]}>
             <Ionicons name="create-outline" size={24} color="#FFFFFF" />
           </Pressable>
 
           <Pressable
-            onPress={toggleRecording}
+            onPress={() => {
+              if (speaking) {
+                Speech.stop();
+                setSpeaking(false);
+              }
+              void toggleRecording();
+            }}
             style={[styles.roundButton, recording ? styles.roundRecording : styles.roundPrimary]}>
             <Ionicons name={recording ? 'stop' : 'mic'} size={24} color="#FFFFFF" />
           </Pressable>
         </View>
 
-        <Pressable onPress={endCall} style={styles.endCall}>
+        <Pressable onPress={finishCall} style={styles.endCall}>
           <Ionicons name="call" size={26} color="#FFFFFF" style={{ transform: [{ rotate: '135deg' }] }} />
         </Pressable>
 
         {answerSheetVisible ? (
           <View style={styles.answerSheet}>
             <TextInput
-              placeholder="Type your answer"
-              placeholderTextColor="#8A92B6"
-              style={styles.input}
               value={answerDraft}
               onChangeText={setAnswerDraft}
               multiline
+              placeholder="Type your answer based only on the uploaded material..."
+              placeholderTextColor="#8CA3B8"
+              style={styles.input}
               editable={!processing && !connecting}
             />
-            <Pressable
-              onPress={() => submitAnswer(answerDraft)}
-              style={[styles.sendButton, processing || connecting ? styles.sendDisabled : null]}
-              disabled={processing || connecting}>
-              <Text style={styles.sendText}>Send Answer</Text>
+            <Pressable style={styles.primaryButton} onPress={() => void submitAnswer(answerDraft)}>
+              <Text style={styles.primaryButtonText}>Send answer</Text>
             </Pressable>
           </View>
         ) : null}
@@ -355,7 +379,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   topText: {
-    color: '#DDE2FF',
+    color: '#D9ECF3',
     fontFamily: fontFamily.bodySemi,
     fontSize: 16,
   },
@@ -365,44 +389,43 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   avatarBubble: {
-    width: 230,
-    height: 230,
+    width: 220,
+    height: 220,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
   panel: {
-    marginTop: 20,
+    marginTop: 18,
     width: '100%',
-    borderRadius: 20,
-    backgroundColor: 'rgba(15, 22, 66, 0.7)',
+    minHeight: 190,
+    borderRadius: 22,
+    padding: 16,
+    backgroundColor: 'rgba(10, 18, 40, 0.34)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    padding: 16,
     gap: 10,
-    minHeight: 180,
   },
   status: {
-    color: '#B7C2FF',
+    color: '#AFC9D8',
     fontFamily: fontFamily.bodySemi,
-    fontSize: 16,
+    fontSize: 15,
   },
   promptText: {
     color: '#FFFFFF',
     fontFamily: fontFamily.body,
-    fontSize: 23,
-    lineHeight: 32,
+    fontSize: 22,
+    lineHeight: 30,
   },
   lastAnswer: {
-    color: '#CFD7FF',
+    color: '#D4E3ED',
     fontFamily: fontFamily.body,
-    fontSize: 17,
-    lineHeight: 24,
+    fontSize: 16,
+    lineHeight: 22,
   },
   controls: {
     marginTop: 20,
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 12,
   },
   roundButton: {
@@ -415,53 +438,82 @@ const styles = StyleSheet.create({
   roundNeutral: {
     backgroundColor: 'rgba(255,255,255,0.18)',
   },
-  roundOff: {
+  roundDim: {
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
   roundPrimary: {
-    backgroundColor: '#2D73FF',
+    backgroundColor: '#2A8282',
   },
   roundRecording: {
-    backgroundColor: '#E85467',
+    backgroundColor: '#D45D4B',
   },
   endCall: {
     marginTop: 18,
     width: 76,
     height: 76,
     borderRadius: 999,
-    backgroundColor: '#ED4F62',
+    backgroundColor: '#D45D4B',
     alignItems: 'center',
     justifyContent: 'center',
   },
   answerSheet: {
     width: '100%',
     marginTop: 18,
-    borderRadius: 16,
-    backgroundColor: '#F2F5FF',
+    borderRadius: 18,
+    backgroundColor: '#F5F8FB',
     padding: 12,
     gap: 10,
   },
   input: {
-    minHeight: 82,
-    maxHeight: 130,
-    color: '#151B31',
+    minHeight: 96,
+    color: '#1B2C39',
     fontFamily: fontFamily.body,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 17,
+    lineHeight: 23,
     textAlignVertical: 'top',
   },
-  sendButton: {
-    height: 50,
+  summaryCard: {
+    marginTop: 32,
+    width: '100%',
+    borderRadius: 24,
+    padding: 18,
+    backgroundColor: 'rgba(10,18,40,0.34)',
+    gap: 12,
+  },
+  summaryTitle: {
+    color: '#FFFFFF',
+    fontFamily: fontFamily.heading,
+    fontSize: 32,
+  },
+  summaryBody: {
+    color: '#D4E3ED',
+    fontFamily: fontFamily.body,
+    fontSize: 16,
+    lineHeight: 22,
+  },
+  summarySection: {
+    gap: 6,
+  },
+  summarySectionTitle: {
+    color: '#F0B44C',
+    fontFamily: fontFamily.subheading,
+    fontSize: 18,
+  },
+  summaryItem: {
+    color: '#E5EEF6',
+    fontFamily: fontFamily.body,
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  primaryButton: {
+    height: 54,
     borderRadius: 999,
-    backgroundColor: '#3E5DFF',
+    backgroundColor: '#F0B44C',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  sendDisabled: {
-    opacity: 0.5,
-  },
-  sendText: {
-    color: '#FFFFFF',
+  primaryButtonText: {
+    color: '#213147',
     fontFamily: fontFamily.subheading,
     fontSize: 18,
   },

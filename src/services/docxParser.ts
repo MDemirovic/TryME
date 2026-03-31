@@ -2,6 +2,7 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import JSZip from 'jszip';
 
+import { enrichStudyDocument } from '@/src/services/studyPack';
 import type { StudyDocument } from '@/src/types';
 
 const DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -162,7 +163,7 @@ export async function pickStudyDocument(): Promise<StudyDocument | null> {
     extractedText = await parseTextLikeFromUri(file.uri, fileType);
   }
 
-  return {
+  return enrichStudyDocument({
     id: createDocumentId(),
     name: file.name,
     uri: file.uri,
@@ -170,7 +171,7 @@ export async function pickStudyDocument(): Promise<StudyDocument | null> {
     uploadedAt: new Date().toISOString(),
     sourceType: 'file',
     fileType,
-  };
+  });
 }
 
 export function createPastedStudyDocument(input: string): StudyDocument {
@@ -179,7 +180,7 @@ export function createPastedStudyDocument(input: string): StudyDocument {
     throw new Error('Please paste at least a few sentences so the examiner can generate useful questions.');
   }
 
-  return {
+  return enrichStudyDocument({
     id: createDocumentId(),
     name: `Pasted notes ${new Date().toLocaleString()}`,
     uri: 'pasted://notes',
@@ -187,5 +188,5 @@ export function createPastedStudyDocument(input: string): StudyDocument {
     uploadedAt: new Date().toISOString(),
     sourceType: 'paste',
     fileType: 'text',
-  };
+  });
 }

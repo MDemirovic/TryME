@@ -35,12 +35,8 @@ function parseQuestionCount(raw: string | undefined): number {
 }
 
 export default function QuizScreen() {
-  const params = useLocalSearchParams<{
-    docId?: string;
-    difficulty?: string;
-    count?: string;
-  }>();
-  const { state, selectStudyDocument } = useApp();
+  const params = useLocalSearchParams<{ docId?: string; difficulty?: string; count?: string }>();
+  const { stage, state, currentDocument, selectStudyDocument, recordStudyAction } = useApp();
 
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,26 +44,30 @@ export default function QuizScreen() {
   const [score, setScore] = useState(0);
   const [inputText, setInputText] = useState('');
   const [pickedOption, setPickedOption] = useState<number | null>(null);
-  const [review, setReview] = useState<{
-    correct: boolean;
-    feedback: string;
-    answerLabel: string;
-  } | null>(null);
+  const [review, setReview] = useState<{ correct: boolean; feedback: string; answerLabel: string } | null>(null);
   const [records, setRecords] = useState<AnswerRecord[]>([]);
-
-  const selectedDocument = useMemo(() => {
-    const fromParam = params.docId ? state.documents.find((doc) => doc.id === params.docId) : null;
-    return fromParam ?? state.document ?? null;
-  }, [params.docId, state.document, state.documents]);
+  const [completionLogged, setCompletionLogged] = useState(false);
 
   const difficulty = parseDifficulty(params.difficulty);
   const count = parseQuestionCount(params.count);
 
+  const selectedDocument = useMemo(() => {
+    const fromParam = params.docId ? state.documents.find((doc) => doc.id === params.docId) : null;
+    return fromParam ?? currentDocument ?? null;
+  }, [currentDocument, params.docId, state.documents]);
+
+  useEffect(() => {
+    if (stage !== 'workspace') {
+      router.replace('/');
+    }
+  }, [stage]);
+
   useEffect(() => {
     let mounted = true;
+
     async function setup() {
       if (!selectedDocument) {
-        Alert.alert('No notes selected', 'Please select a file from Library first.');
+        Alert.alert('No document selected', 'Choose a study source from the library first.');
         router.replace('/library');
         return;
       }
@@ -86,7 +86,7 @@ export default function QuizScreen() {
         selectStudyDocument(selectedDocument.id);
         setQuestions(generated);
       } catch (error) {
-        Alert.alert('Quiz setup failed', error instanceof Error ? error.message : 'Could not generate quiz.');
+        Alert.alert('Quiz setup failed', error instanceof Error ? error.message : 'Could not generate a quiz.');
         router.replace('/library');
       } finally {
         if (mounted) {
@@ -95,11 +95,19 @@ export default function QuizScreen() {
       }
     }
 
-    setup();
+    void setup();
+
     return () => {
       mounted = false;
     };
   }, [count, difficulty, selectStudyDocument, selectedDocument]);
+
+  useEffect(() => {
+    if (!loading && !completionLogged && questions.length > 0 && index >= questions.length && selectedDocument) {
+      recordStudyAction('quiz', selectedDocument.studyPack.weakTopicSuggestions.slice(0, 2));
+      setCompletionLogged(true);
+    }
+  }, [completionLogged, index, loading, questions.length, recordStudyAction, selectedDocument]);
 
   const current = questions[index];
   const progress = questions.length > 0 ? (index + 1) / questions.length : 0;
@@ -131,8 +139,8 @@ export default function QuizScreen() {
       current.type === 'multiple'
         ? current.options[current.correctOptionIndex]
         : current.type === 'fill_blank'
-        ? current.expectedAnswer
-        : current.reference;
+          ? current.expectedAnswer
+          : current.reference;
 
     setReview({
       correct: result.correct,
@@ -158,30 +166,34 @@ export default function QuizScreen() {
 
   if (!current) {
     const correctAnswers = records.filter((record) => record.correct).length;
-    const wrongAnswers = records.length - correctAnswers;
     const percentage = records.length > 0 ? Math.round((correctAnswers / records.length) * 100) : 0;
 
     return (
       <SafeAreaView style={styles.safe}>
-        <LinearGradient colors={['#06114B', '#160D5E']} style={styles.page}>
+        <LinearGradient colors={['#17345F', '#0E4C55']} style={styles.page}>
           <View style={styles.resultCard}>
-            <Text style={styles.resultTitle}>Quiz Finished</Text>
-            <Text style={styles.resultScore}>Score: {score}</Text>
-            <Text style={styles.resultMeta}>Correct: {correctAnswers}</Text>
-            <Text style={styles.resultMeta}>Wrong: {wrongAnswers}</Text>
-            <Text style={styles.resultMeta}>Accuracy: {percentage}%</Text>
-
-            <Text style={styles.resultHint}>
-              Review your weak points and repeat the quiz for stronger retention.
+            <Text style={styles.resultTitle}>Quiz complete</Text>
+            <Text style={styles.resultScore}>Score {score}</Text>
+            <Text style={styles.resultMeta}>Accuracy {percentage}%</Text>
+            <Text style={styles.resultMeta}>
+              {selectedDocument?.studyPack.quizTargets.slice(0, 3).join(' • ') ?? 'Stay grounded in your document.'}
             </Text>
 
+            <View style={styles.summaryCard}>
+              <Text style={styles.summaryTitle}>Recommended next focus</Text>
+              {(selectedDocument?.studyPack.weakTopicSuggestions ?? []).slice(0, 3).map((item) => (
+                <Text key={item} style={styles.summaryItem}>{`\u2022 ${item}`}</Text>
+              ))}
+            </View>
+
             <Pressable
-              style={styles.resultButton}
+              style={styles.primaryButton}
               onPress={() => {
                 if (!selectedDocument) {
                   router.replace('/library');
                   return;
                 }
+
                 router.replace({
                   pathname: '/quiz',
                   params: {
@@ -191,11 +203,11 @@ export default function QuizScreen() {
                   },
                 });
               }}>
-              <Text style={styles.resultButtonText}>Play Again</Text>
+              <Text style={styles.primaryButtonText}>Run another quiz</Text>
             </Pressable>
 
-            <Pressable style={[styles.resultButton, styles.resultButtonSecondary]} onPress={() => router.replace('/library')}>
-              <Text style={[styles.resultButtonText, styles.resultButtonTextSecondary]}>Back to Library</Text>
+            <Pressable style={styles.secondaryButton} onPress={() => router.replace('/home')}>
+              <Text style={styles.secondaryButtonText}>Back to workspace</Text>
             </Pressable>
           </View>
         </LinearGradient>
@@ -205,15 +217,15 @@ export default function QuizScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <LinearGradient colors={['#06114B', '#160D5E']} style={styles.page}>
+      <LinearGradient colors={['#17345F', '#0E4C55']} style={styles.page}>
         <View style={styles.topRow}>
-          <Pressable onPress={() => router.replace('/library')} style={styles.backButton}>
-            <Ionicons name="close" size={24} color="#E6EAFF" />
+          <Pressable onPress={() => router.replace('/home')} style={styles.iconButton}>
+            <Ionicons name="close" size={22} color="#F0F6FF" />
           </Pressable>
-          <Text style={styles.roundText}>
-            Round {index + 1}/{questions.length}
+          <Text style={styles.topText}>
+            Question {index + 1}/{questions.length}
           </Text>
-          <Text style={styles.scoreText}>Score {score}</Text>
+          <Text style={styles.topText}>Score {score}</Text>
         </View>
 
         <View style={styles.progressTrack}>
@@ -222,11 +234,7 @@ export default function QuizScreen() {
 
         <ScrollView style={styles.centerArea} contentContainerStyle={styles.centerContent}>
           <Text style={styles.typeLabel}>
-            {current.type === 'multiple'
-              ? 'MULTIPLE CHOICE'
-              : current.type === 'fill_blank'
-              ? 'FILL IN THE BLANK'
-              : 'DEFINITION'}
+            {current.type === 'multiple' ? 'MULTIPLE CHOICE' : current.type === 'fill_blank' ? 'FILL IN' : 'SHORT ANSWER'}
           </Text>
           <Text style={styles.questionText}>{current.prompt}</Text>
 
@@ -236,50 +244,41 @@ export default function QuizScreen() {
                 <Pressable
                   key={`${current.id}-${optionIndex}`}
                   onPress={() => setPickedOption(optionIndex)}
-                  style={[
-                    styles.answerOption,
-                    pickedOption === optionIndex ? styles.answerOptionSelected : null,
-                  ]}>
+                  style={[styles.answerOption, pickedOption === optionIndex ? styles.answerOptionSelected : null]}>
                   <Text style={styles.answerLabel}>{String.fromCharCode(65 + optionIndex)}</Text>
                   <Text style={styles.answerText}>{option}</Text>
                 </Pressable>
               ))}
             </View>
           ) : (
-            <View style={styles.inputWrap}>
-              <TextInput
-                multiline
-                value={inputText}
-                onChangeText={setInputText}
-                placeholder={
-                  current.type === 'fill_blank'
-                    ? 'Type the missing term...'
-                    : 'Write your definition based only on your notes...'
-                }
-                placeholderTextColor="#9AA4CC"
-                style={styles.input}
-              />
-            </View>
+            <TextInput
+              multiline
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder={current.type === 'fill_blank' ? 'Type the missing term...' : 'Answer using only the document...'}
+              placeholderTextColor="#A8C0CF"
+              style={styles.input}
+            />
           )}
         </ScrollView>
 
         {review ? (
           <View style={styles.reviewCard}>
-            <Text style={[styles.reviewTitle, review.correct ? styles.reviewCorrect : styles.reviewWrong]}>
-              {review.correct ? 'Correct' : 'Not Correct'}
+            <Text style={[styles.reviewTitle, review.correct ? styles.reviewGood : styles.reviewBad]}>
+              {review.correct ? 'Strong answer' : 'Needs one more pass'}
             </Text>
-            <Text style={styles.reviewFeedback}>{review.feedback}</Text>
-            {!review.correct ? <Text style={styles.reviewAnswer}>Expected: {review.answerLabel}</Text> : null}
-            <Pressable style={styles.nextButton} onPress={goNext}>
-              <Text style={styles.nextButtonText}>Next Round</Text>
+            <Text style={styles.reviewText}>{review.feedback}</Text>
+            {!review.correct ? <Text style={styles.reviewExpected}>Expected anchor: {review.answerLabel}</Text> : null}
+            <Pressable style={styles.primaryButton} onPress={goNext}>
+              <Text style={styles.primaryButtonText}>Next question</Text>
             </Pressable>
           </View>
         ) : (
           <Pressable
-            style={styles.submitButton}
+            style={styles.primaryButton}
             onPress={submitAnswer}
             disabled={current.type === 'multiple' ? pickedOption === null : inputText.trim().length === 0}>
-            <Text style={styles.submitText}>Lock Answer</Text>
+            <Text style={styles.primaryButtonText}>Submit answer</Text>
           </Pressable>
         )}
       </LinearGradient>
@@ -290,39 +289,34 @@ export default function QuizScreen() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#06114B',
+    backgroundColor: '#17345F',
   },
   page: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingBottom: 14,
+    paddingBottom: 16,
   },
   topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  backButton: {
+  iconButton: {
     width: 42,
     height: 42,
     borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  roundText: {
-    color: '#D9E0FF',
-    fontFamily: fontFamily.bodySemi,
-    fontSize: 14,
-  },
-  scoreText: {
-    color: '#D9E0FF',
+  topText: {
+    color: '#E5EEF6',
     fontFamily: fontFamily.bodySemi,
     fontSize: 14,
   },
   progressTrack: {
-    marginTop: 10,
+    marginTop: 12,
     height: 10,
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.16)',
@@ -330,188 +324,167 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#40D58A',
+    backgroundColor: '#F0B44C',
     borderRadius: 999,
   },
   centerArea: {
     flex: 1,
-    marginTop: 16,
+    marginTop: 18,
   },
   centerContent: {
+    gap: 14,
     paddingBottom: 24,
-    gap: 12,
   },
   typeLabel: {
-    color: '#A8B7FF',
+    color: '#BFD4DF',
     fontFamily: fontFamily.bodySemi,
     fontSize: 12,
-    letterSpacing: 0.7,
+    letterSpacing: 1,
   },
   questionText: {
     color: '#FFFFFF',
     fontFamily: fontFamily.heading,
-    fontSize: 30,
-    lineHeight: 37,
+    fontSize: 28,
+    lineHeight: 34,
   },
   answersWrap: {
-    marginTop: 6,
     gap: 10,
   },
   answerOption: {
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.13)',
-    padding: 12,
+    borderColor: 'rgba(255,255,255,0.12)',
     flexDirection: 'row',
     gap: 10,
-    alignItems: 'flex-start',
   },
   answerOptionSelected: {
-    borderColor: '#69A6FF',
-    backgroundColor: 'rgba(105,166,255,0.2)',
+    backgroundColor: 'rgba(240,180,76,0.18)',
+    borderColor: '#F0B44C',
   },
   answerLabel: {
-    color: '#A7BAFF',
-    fontFamily: fontFamily.heading,
+    color: '#F0D08F',
+    fontFamily: fontFamily.subheading,
     fontSize: 18,
-    marginTop: 1,
   },
   answerText: {
     flex: 1,
-    color: '#E9EDFF',
+    color: '#E9F3F7',
     fontFamily: fontFamily.body,
-    fontSize: 18,
-    lineHeight: 24,
-  },
-  inputWrap: {
-    marginTop: 8,
+    fontSize: 17,
+    lineHeight: 23,
   },
   input: {
-    minHeight: 140,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    color: '#FFFFFF',
-    fontFamily: fontFamily.body,
-    fontSize: 18,
-    lineHeight: 24,
-    padding: 12,
-    textAlignVertical: 'top',
-  },
-  submitButton: {
-    marginTop: 8,
-    height: 54,
-    borderRadius: 999,
-    backgroundColor: '#F6C730',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  submitText: {
-    color: '#202D60',
-    fontFamily: fontFamily.subheading,
-    fontSize: 20,
-  },
-  reviewCard: {
-    marginTop: 8,
-    borderRadius: 16,
+    minHeight: 150,
+    borderRadius: 18,
+    padding: 14,
     backgroundColor: 'rgba(255,255,255,0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-    padding: 12,
-    gap: 8,
+    borderColor: 'rgba(255,255,255,0.12)',
+    color: '#FFFFFF',
+    fontFamily: fontFamily.body,
+    fontSize: 17,
+    lineHeight: 23,
+    textAlignVertical: 'top',
+  },
+  reviewCard: {
+    gap: 10,
+    padding: 14,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.12)',
   },
   reviewTitle: {
     fontFamily: fontFamily.subheading,
     fontSize: 20,
   },
-  reviewCorrect: {
-    color: '#67E3A3',
+  reviewGood: {
+    color: '#8EE2B2',
   },
-  reviewWrong: {
-    color: '#FF8C9F',
+  reviewBad: {
+    color: '#FFD3A1',
   },
-  reviewFeedback: {
-    color: '#DCE4FF',
+  reviewText: {
+    color: '#E5EEF6',
     fontFamily: fontFamily.body,
     fontSize: 16,
     lineHeight: 22,
   },
-  reviewAnswer: {
-    color: '#BBC7FF',
+  reviewExpected: {
+    color: '#C6D9E4',
     fontFamily: fontFamily.body,
     fontSize: 14,
     lineHeight: 20,
   },
-  nextButton: {
-    height: 46,
-    borderRadius: 999,
-    backgroundColor: '#4B6DFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  nextButtonText: {
-    color: '#FFFFFF',
-    fontFamily: fontFamily.subheading,
-    fontSize: 17,
-  },
   resultCard: {
-    marginTop: 36,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
+    marginTop: 34,
+    borderRadius: 24,
     padding: 18,
-    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    gap: 10,
   },
   resultTitle: {
     color: '#FFFFFF',
     fontFamily: fontFamily.heading,
-    fontSize: 36,
+    fontSize: 34,
   },
   resultScore: {
-    color: '#F5CB3C',
+    color: '#F0B44C',
     fontFamily: fontFamily.subheading,
-    fontSize: 26,
+    fontSize: 28,
   },
   resultMeta: {
-    color: '#DBE3FF',
-    fontFamily: fontFamily.body,
-    fontSize: 18,
-  },
-  resultHint: {
-    marginTop: 4,
-    color: '#B8C4F8',
+    color: '#E5EEF6',
     fontFamily: fontFamily.body,
     fontSize: 16,
     lineHeight: 22,
   },
-  resultButton: {
-    marginTop: 10,
-    height: 52,
-    borderRadius: 999,
-    backgroundColor: '#F6C730',
-    alignItems: 'center',
-    justifyContent: 'center',
+  summaryCard: {
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    gap: 8,
   },
-  resultButtonSecondary: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    marginTop: 0,
-  },
-  resultButtonText: {
-    color: '#202D60',
+  summaryTitle: {
+    color: '#FFFFFF',
     fontFamily: fontFamily.subheading,
     fontSize: 18,
   },
-  resultButtonTextSecondary: {
-    color: '#E4EAFF',
+  summaryItem: {
+    color: '#D8E6F0',
+    fontFamily: fontFamily.body,
+    fontSize: 15,
+    lineHeight: 21,
+  },
+  primaryButton: {
+    marginTop: 8,
+    height: 54,
+    borderRadius: 999,
+    backgroundColor: '#F0B44C',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButtonText: {
+    color: '#213147',
+    fontFamily: fontFamily.subheading,
+    fontSize: 18,
+  },
+  secondaryButton: {
+    height: 52,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  secondaryButtonText: {
+    color: '#FFFFFF',
+    fontFamily: fontFamily.subheading,
+    fontSize: 17,
   },
   loaderWrap: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#06114B',
+    backgroundColor: '#17345F',
   },
 });

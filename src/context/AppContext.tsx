@@ -1,43 +1,75 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import type { AppStage, AuthMethod, PersistedAppState, PlanType, StudyDocument, StudyGoal } from '@/src/types';
+import type {
+  AppLanguage,
+  AppStage,
+  AuthMethod,
+  PersistedAppState,
+  SessionStats,
+  StudyAction,
+  StudyDocument,
+  UserProfile,
+} from '@/src/types';
 import { getMonthKey } from '@/src/utils/month';
 
-const STORAGE_KEY = 'tryme_state_v2';
+const STORAGE_KEY = 'tryme_state_v3';
 const FREE_CALL_LIMIT = 3;
 
+const initialSessionStats: SessionStats = {
+  completed: 0,
+  quizSessions: 0,
+  flashcardSessions: 0,
+  noteSessions: 0,
+  callSessions: 0,
+  streak: 0,
+  weeklyGoal: 4,
+  weakAreas: [],
+  lastActionLabel: null,
+};
+
 const initialState: PersistedAppState = {
-  isAuthenticated: false,
-  didSignup: false,
-  paywallSeen: false,
+  onboardingComplete: false,
+  accountStatus: 'guest',
   authMethod: null,
   plan: 'free',
-  studyGoal: null,
-  document: null,
+  profile: null,
   documents: [],
+  activeDocumentId: null,
   callUsage: {
     monthKey: getMonthKey(),
     used: 0,
   },
+  sessionStats: initialSessionStats,
 };
+
+interface OnboardingPayload {
+  firstName: string;
+  ageBracket: UserProfile['ageBracket'];
+  appLanguage: AppLanguage;
+  notificationsEnabled: boolean;
+  document: StudyDocument;
+}
 
 interface AppContextValue {
   loading: boolean;
   state: PersistedAppState;
   stage: AppStage;
+  currentDocument: StudyDocument | null;
   remainingCalls: number;
   freeCallLimit: number;
-  startSignup: (method: Exclude<AuthMethod, 'login'>) => void;
-  completeLogin: () => void;
-  choosePlan: (plan: PlanType) => void;
-  skipPaywall: () => void;
-  setStudyGoal: (goal: StudyGoal) => void;
+  completeOnboarding: (payload: OnboardingPayload) => void;
+  signInReturningUser: (method: AuthMethod) => void;
+  createAccount: (method: AuthMethod) => void;
+  choosePlan: (plan: PersistedAppState['plan']) => void;
+  setNotificationsEnabled: (enabled: boolean) => void;
   setStudyDocument: (document: StudyDocument) => void;
   selectStudyDocument: (documentId: string) => void;
   removeStudyDocument: (documentId: string) => void;
-  clearStudyDocument: () => void;
   registerCallStart: () => boolean;
+  recordStudyAction: (action: StudyAction, weakAreas?: string[]) => void;
+  logoutToOnboarding: () => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -53,58 +85,27 @@ function normalizeCallUsage(state: PersistedAppState): PersistedAppState['callUs
   return state.callUsage;
 }
 
-function computeStage(state: PersistedAppState): AppStage {
-  if (!state.isAuthenticated) {
-    return 'auth';
-  }
-
-  if (state.didSignup && !state.paywallSeen) {
-    return 'paywall';
-  }
-
-  if (!state.studyGoal) {
-    return 'goal';
-  }
-
-  return 'home';
-}
-
 function sanitizeDocument(candidate: unknown): StudyDocument | null {
   if (!candidate || typeof candidate !== 'object') {
     return null;
   }
 
-  const value = candidate as Partial<StudyDocument>;
+  const value = candidate as StudyDocument;
   if (
+    typeof value.id !== 'string' ||
     typeof value.name !== 'string' ||
     typeof value.uri !== 'string' ||
     typeof value.extractedText !== 'string' ||
-    typeof value.uploadedAt !== 'string'
+    typeof value.uploadedAt !== 'string' ||
+    typeof value.wordCount !== 'number' ||
+    typeof value.detectedLanguage !== 'string' ||
+    (value.status !== 'ready' && value.status !== 'needs_attention') ||
+    !value.studyPack
   ) {
     return null;
   }
 
-  const fileType =
-    value.fileType === 'docx' ||
-    value.fileType === 'pdf' ||
-    value.fileType === 'doc' ||
-    value.fileType === 'txt' ||
-    value.fileType === 'text'
-      ? value.fileType
-      : 'text';
-
-  const sourceType = value.sourceType === 'file' || value.sourceType === 'paste' ? value.sourceType : 'file';
-  const id = typeof value.id === 'string' && value.id.trim().length > 0 ? value.id : `${value.uploadedAt}-${value.name}`;
-
-  return {
-    id,
-    name: value.name,
-    uri: value.uri,
-    extractedText: value.extractedText,
-    uploadedAt: value.uploadedAt,
-    sourceType,
-    fileType,
-  };
+  return value;
 }
 
 function sanitizeState(candidate: unknown): PersistedAppState {
@@ -113,7 +114,6 @@ function sanitizeState(candidate: unknown): PersistedAppState {
   }
 
   const value = candidate as Partial<PersistedAppState>;
-  const currentDocument = sanitizeDocument(value.document);
   const documents = Array.isArray(value.documents)
     ? value.documents.map((doc) => sanitizeDocument(doc)).filter((doc): doc is StudyDocument => Boolean(doc))
     : [];
@@ -126,20 +126,31 @@ function sanitizeState(candidate: unknown): PersistedAppState {
   });
 
   return {
-    isAuthenticated: Boolean(value.isAuthenticated),
-    didSignup: Boolean(value.didSignup),
-    paywallSeen: Boolean(value.paywallSeen),
+    onboardingComplete: Boolean(value.onboardingComplete),
+    accountStatus: value.accountStatus === 'member' ? 'member' : 'guest',
     authMethod:
-      value.authMethod === 'google' || value.authMethod === 'email' || value.authMethod === 'login'
+      value.authMethod === 'apple' || value.authMethod === 'google' || value.authMethod === 'email'
         ? value.authMethod
         : null,
     plan: value.plan === 'premium' ? 'premium' : 'free',
-    studyGoal:
-      value.studyGoal === 'exam' || value.studyGoal === 'flashcards' || value.studyGoal === 'other'
-        ? value.studyGoal
+    profile:
+      value.profile &&
+      typeof value.profile.firstName === 'string' &&
+      (value.profile.ageBracket === 'under_16' ||
+        value.profile.ageBracket === '16_18' ||
+        value.profile.ageBracket === '19_22' ||
+        value.profile.ageBracket === '23_plus') &&
+      (value.profile.appLanguage === 'english' ||
+        value.profile.appLanguage === 'spanish' ||
+        value.profile.appLanguage === 'german') &&
+      typeof value.profile.notificationsEnabled === 'boolean'
+        ? value.profile
         : null,
-    document: currentDocument,
     documents: dedupedDocuments,
+    activeDocumentId:
+      typeof value.activeDocumentId === 'string' && dedupedDocuments.some((doc) => doc.id === value.activeDocumentId)
+        ? value.activeDocumentId
+        : dedupedDocuments[0]?.id ?? null,
     callUsage:
       value.callUsage &&
       typeof value.callUsage.monthKey === 'string' &&
@@ -149,6 +160,61 @@ function sanitizeState(candidate: unknown): PersistedAppState {
             monthKey: getMonthKey(),
             used: 0,
           },
+    sessionStats:
+      value.sessionStats &&
+      typeof value.sessionStats.completed === 'number' &&
+      typeof value.sessionStats.quizSessions === 'number' &&
+      typeof value.sessionStats.flashcardSessions === 'number' &&
+      typeof value.sessionStats.noteSessions === 'number' &&
+      typeof value.sessionStats.callSessions === 'number' &&
+      typeof value.sessionStats.streak === 'number' &&
+      typeof value.sessionStats.weeklyGoal === 'number' &&
+      Array.isArray(value.sessionStats.weakAreas)
+        ? {
+            completed: value.sessionStats.completed,
+            quizSessions: value.sessionStats.quizSessions,
+            flashcardSessions: value.sessionStats.flashcardSessions,
+            noteSessions: value.sessionStats.noteSessions,
+            callSessions: value.sessionStats.callSessions,
+            streak: value.sessionStats.streak,
+            weeklyGoal: value.sessionStats.weeklyGoal,
+            weakAreas: value.sessionStats.weakAreas.filter((item): item is string => typeof item === 'string').slice(0, 8),
+            lastActionLabel: typeof value.sessionStats.lastActionLabel === 'string' ? value.sessionStats.lastActionLabel : null,
+          }
+        : initialSessionStats,
+  };
+}
+
+function computeStage(state: PersistedAppState): AppStage {
+  return state.onboardingComplete ? 'workspace' : 'welcome';
+}
+
+function labelForAction(action: StudyAction): string {
+  switch (action) {
+    case 'quiz':
+      return 'Completed a quiz session';
+    case 'flashcards':
+      return 'Reviewed flashcards';
+    case 'notes':
+      return 'Read the study script';
+    case 'call':
+      return 'Finished an AI oral exam call';
+    default:
+      return 'Studied';
+  }
+}
+
+function incrementSessionStats(stats: SessionStats, action: StudyAction, weakAreas: string[]): SessionStats {
+  return {
+    ...stats,
+    completed: stats.completed + 1,
+    quizSessions: stats.quizSessions + (action === 'quiz' ? 1 : 0),
+    flashcardSessions: stats.flashcardSessions + (action === 'flashcards' ? 1 : 0),
+    noteSessions: stats.noteSessions + (action === 'notes' ? 1 : 0),
+    callSessions: stats.callSessions + (action === 'call' ? 1 : 0),
+    streak: Math.max(1, Math.min(30, stats.streak + 1)),
+    weakAreas: [...new Set([...weakAreas, ...stats.weakAreas])].slice(0, 6),
+    lastActionLabel: labelForAction(action),
   };
 }
 
@@ -213,6 +279,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [state]);
 
+  const currentDocument = useMemo(
+    () => state.documents.find((document) => document.id === state.activeDocumentId) ?? null,
+    [state.activeDocumentId, state.documents],
+  );
+
   const remainingCalls = useMemo(() => {
     if (state.plan === 'premium') {
       return Number.MAX_SAFE_INTEGER;
@@ -222,66 +293,93 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return Math.max(0, FREE_CALL_LIMIT - normalized.used);
   }, [state]);
 
-  const startSignup = useCallback((method: Exclude<AuthMethod, 'login'>) => {
+  const completeOnboarding = useCallback((payload: OnboardingPayload) => {
     setState((prev) => ({
       ...prev,
-      isAuthenticated: true,
-      didSignup: true,
-      paywallSeen: false,
+      onboardingComplete: true,
+      accountStatus: 'guest',
+      authMethod: null,
+      profile: {
+        firstName: payload.firstName.trim() || 'Scholar',
+        ageBracket: payload.ageBracket,
+        appLanguage: payload.appLanguage,
+        notificationsEnabled: payload.notificationsEnabled,
+      },
+      documents: [payload.document, ...prev.documents.filter((item) => item.id !== payload.document.id)].slice(0, 80),
+      activeDocumentId: payload.document.id,
+      sessionStats: {
+        ...prev.sessionStats,
+        lastActionLabel: 'Imported first study document',
+      },
+    }));
+  }, []);
+
+  const signInReturningUser = useCallback((method: AuthMethod) => {
+    setState((prev) => ({
+      ...prev,
+      onboardingComplete: true,
+      accountStatus: 'member',
+      authMethod: method,
+      profile:
+        prev.profile ??
+        {
+          firstName: 'Scholar',
+          ageBracket: '19_22',
+          appLanguage: 'english',
+          notificationsEnabled: true,
+        },
+    }));
+  }, []);
+
+  const createAccount = useCallback((method: AuthMethod) => {
+    setState((prev) => ({
+      ...prev,
+      accountStatus: 'member',
       authMethod: method,
     }));
   }, []);
 
-  const completeLogin = useCallback(() => {
+  const choosePlan = useCallback((plan: PersistedAppState['plan']) => {
     setState((prev) => ({
       ...prev,
-      isAuthenticated: true,
-      didSignup: false,
-      paywallSeen: true,
-      authMethod: 'login',
-    }));
-  }, []);
-
-  const choosePlan = useCallback((plan: PlanType) => {
-    setState((prev) => ({
-      ...prev,
-      paywallSeen: true,
       plan,
     }));
   }, []);
 
-  const skipPaywall = useCallback(() => {
+  const setNotificationsEnabled = useCallback((enabled: boolean) => {
     setState((prev) => ({
       ...prev,
-      paywallSeen: true,
-      plan: prev.plan ?? 'free',
-    }));
-  }, []);
-
-  const setStudyGoal = useCallback((goal: StudyGoal) => {
-    setState((prev) => ({
-      ...prev,
-      studyGoal: goal,
+      profile: prev.profile
+        ? {
+            ...prev.profile,
+            notificationsEnabled: enabled,
+          }
+        : prev.profile,
     }));
   }, []);
 
   const setStudyDocument = useCallback((document: StudyDocument) => {
     setState((prev) => ({
       ...prev,
-      document,
+      onboardingComplete: true,
       documents: [document, ...prev.documents.filter((item) => item.id !== document.id)].slice(0, 80),
+      activeDocumentId: document.id,
+      sessionStats: {
+        ...prev.sessionStats,
+        lastActionLabel: `Imported ${document.name}`,
+      },
     }));
   }, []);
 
   const selectStudyDocument = useCallback((documentId: string) => {
     setState((prev) => {
-      const found = prev.documents.find((item) => item.id === documentId);
-      if (!found) {
+      if (!prev.documents.some((item) => item.id === documentId)) {
         return prev;
       }
+
       return {
         ...prev,
-        document: found,
+        activeDocumentId: documentId,
       };
     });
   }, []);
@@ -289,20 +387,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const removeStudyDocument = useCallback((documentId: string) => {
     setState((prev) => {
       const nextDocuments = prev.documents.filter((item) => item.id !== documentId);
-      const nextCurrent = prev.document?.id === documentId ? nextDocuments[0] ?? null : prev.document;
       return {
         ...prev,
         documents: nextDocuments,
-        document: nextCurrent,
+        activeDocumentId: prev.activeDocumentId === documentId ? nextDocuments[0]?.id ?? null : prev.activeDocumentId,
       };
     });
-  }, []);
-
-  const clearStudyDocument = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      document: null,
-    }));
   }, []);
 
   const registerCallStart = useCallback(() => {
@@ -338,6 +428,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return true;
   }, [state]);
 
+  const recordStudyAction = useCallback((action: StudyAction, weakAreas: string[] = []) => {
+    setState((prev) => ({
+      ...prev,
+      sessionStats: incrementSessionStats(prev.sessionStats, action, weakAreas),
+    }));
+  }, []);
+
+  const resetToInitialState = useCallback(async () => {
+    setState(initialState);
+    await AsyncStorage.removeItem(STORAGE_KEY).catch(() => undefined);
+  }, []);
+
   const stage = useMemo(() => computeStage(state), [state]);
 
   const value = useMemo<AppContextValue>(
@@ -345,34 +447,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
       loading,
       state,
       stage,
+      currentDocument,
       remainingCalls,
       freeCallLimit: FREE_CALL_LIMIT,
-      startSignup,
-      completeLogin,
+      completeOnboarding,
+      signInReturningUser,
+      createAccount,
       choosePlan,
-      skipPaywall,
-      setStudyGoal,
+      setNotificationsEnabled,
       setStudyDocument,
       selectStudyDocument,
       removeStudyDocument,
-      clearStudyDocument,
       registerCallStart,
+      recordStudyAction,
+      logoutToOnboarding: resetToInitialState,
+      deleteAccount: resetToInitialState,
     }),
     [
       loading,
       state,
       stage,
+      currentDocument,
       remainingCalls,
-      startSignup,
-      completeLogin,
+      completeOnboarding,
+      signInReturningUser,
+      createAccount,
       choosePlan,
-      skipPaywall,
-      setStudyGoal,
+      setNotificationsEnabled,
       setStudyDocument,
       selectStudyDocument,
       removeStudyDocument,
-      clearStudyDocument,
       registerCallStart,
+      recordStudyAction,
+      resetToInitialState,
     ],
   );
 

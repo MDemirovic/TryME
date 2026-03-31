@@ -38,7 +38,12 @@ export function PrimaryButton({
         style,
       ]}>
       {icon}
-      <Text maxFontSizeMultiplier={1.05} style={[styles.label, labelStyles[variant], textStyle]}>
+      <Text
+        maxFontSizeMultiplier={1.05}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.82}
+        style={[styles.label, labelStyles[variant], textStyle]}>
         {label}
       </Text>
     </Pressable>

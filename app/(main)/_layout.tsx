@@ -10,13 +10,13 @@ export default function MainTabsLayout() {
         headerShown: false,
         tabBarShowLabel: true,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: '#657094',
+        tabBarInactiveTintColor: '#7A846E',
         tabBarStyle: {
-          height: 82,
+          height: 84,
           paddingBottom: 10,
           paddingTop: 8,
-          borderTopColor: '#E5EAF9',
-          backgroundColor: '#FFFFFF',
+          borderTopColor: '#E3DACA',
+          backgroundColor: '#FFFDF8',
         },
         tabBarLabelStyle: {
           fontFamily: fontFamily.bodySemi,
@@ -26,8 +26,8 @@ export default function MainTabsLayout() {
       <Tabs.Screen
         name="home"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <Ionicons name="home-outline" size={24} color={color} />,
+          title: 'Workspace',
+          tabBarIcon: ({ color }) => <Ionicons name="sparkles-outline" size={24} color={color} />,
         }}
       />
       <Tabs.Screen
@@ -40,8 +40,8 @@ export default function MainTabsLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
-          tabBarIcon: ({ color }) => <Ionicons name="settings-outline" size={24} color={color} />,
+          title: 'Progress',
+          tabBarIcon: ({ color }) => <Ionicons name="stats-chart-outline" size={24} color={color} />,
         }}
       />
     </Tabs>

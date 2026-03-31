@@ -42,12 +42,11 @@ export default function RootLayout() {
         <Stack
           screenOptions={{
             headerShown: false,
-            contentStyle: { backgroundColor: '#EEF1FF' },
+            contentStyle: { backgroundColor: '#F6F1E8' },
             animation: 'fade_from_bottom',
           }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="paywall" />
-          <Stack.Screen name="goal" />
           <Stack.Screen name="(main)" />
           <Stack.Screen
             name="quiz"
