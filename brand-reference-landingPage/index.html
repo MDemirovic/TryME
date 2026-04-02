@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Examigo Brand Reference</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&family=Sora:wght@600;700;800&display=swap"
+      rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="hero">
+        <div class="hero-copy">
+          <span class="eyebrow">Examigo reference board</span>
+          <h1>Component map, palette system, and brand rules for Examigo.</h1>
+          <p class="lead">
+            This page keeps the current green, ivory, and soft-mint vibe from the app, while locking
+            reusable decisions for future UI and Figma work.
+          </p>
+
+          <div class="brand-pills">
+            <span class="pill">Brand name: Examigo</span>
+            <span class="pill">Mascot: Exa</span>
+            <span class="pill">Role: smart examiner</span>
+          </div>
+
+          <div class="hero-note">
+            <strong>Core feeling</strong>
+            <p>Upload your notes. Get examined like it matters.</p>
+          </div>
+        </div>
+
+        <div class="hero-visual">
+          <div class="hover-card">
+            <span class="hover-tag">Headspace inspiration</span>
+            <strong>White floating card</strong>
+            <p>Use elevated white cards with soft border, warm shadow, and airy spacing above the mascot.</p>
+          </div>
+
+          <div class="mascot-stage">
+            <div class="formula left">E=mc²</div>
+            <div class="formula center">A+</div>
+            <div class="formula right">abc</div>
+
+            <div class="exa">
+              <div class="exa-ear exa-ear-left"></div>
+              <div class="exa-ear exa-ear-right"></div>
+              <div class="exa-head">
+                <div class="exa-eye exa-eye-left"></div>
+                <div class="exa-eye exa-eye-right"></div>
+                <div class="exa-mouth"></div>
+              </div>
+              <div class="exa-body"></div>
+              <div class="exa-book">
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="grid-section">
+          <article class="info-card">
+            <span class="eyebrow">Brand summary</span>
+            <h2>What Examigo should always feel like</h2>
+            <ul class="clean-list">
+              <li>Warm and premium, not sterile.</li>
+              <li>Smart examiner energy, not generic AI assistant.</li>
+              <li>Document-first studying, not dashboard-first clutter.</li>
+            </ul>
+          </article>
+
+          <article class="info-card">
+            <span class="eyebrow">Mascot rules</span>
+            <h2>Exa usage direction</h2>
+            <ul class="clean-list">
+              <li>Rounded silhouette, expressive eyes, slightly serious attitude.</li>
+              <li>Feels intelligent before cute.</li>
+              <li>Appears in hero moments, loading, empty states, and gentle feedback.</li>
+            </ul>
+          </article>
+
+          <article class="info-card">
+            <span class="eyebrow">Voice direction</span>
+            <h2>Interface tone</h2>
+            <ul class="clean-list">
+              <li>Supportive, clean, and a little sharp.</li>
+              <li>Never childish, never corporate.</li>
+              <li>Short copy with confidence and clarity.</li>
+            </ul>
+          </article>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <span class="eyebrow">Color system</span>
+            <h2>Primary palette</h2>
+            <p>Keep these tokens stable across marketing, product UI, and future design files.</p>
+          </div>
+
+          <div class="swatch-grid">
+            <div class="swatch">
+              <div class="swatch-chip bg-page"></div>
+              <strong>Ivory Page</strong>
+              <span>#F6F1E8</span>
+              <p>Default app background and soft landing page canvas.</p>
+            </div>
+            <div class="swatch">
+              <div class="swatch-chip bg-card"></div>
+              <strong>Cloud White</strong>
+              <span>#FFFDF8</span>
+              <p>Primary cards, floating surfaces, and elevated overlays.</p>
+            </div>
+            <div class="swatch">
+              <div class="swatch-chip bg-soft"></div>
+              <strong>Mint Wash</strong>
+              <span>#E7F0EA</span>
+              <p>Secondary surface, soft CTA fill, and section highlight.</p>
+            </div>
+            <div class="swatch">
+              <div class="swatch-chip bg-primary"></div>
+              <strong>Examigo Teal</strong>
+              <span>#1F6C68</span>
+              <p>Primary actions, active states, and icon anchors.</p>
+            </div>
+            <div class="swatch">
+              <div class="swatch-chip bg-primary-pressed"></div>
+              <strong>Teal Pressed</strong>
+              <span>#195854</span>
+              <p>Pressed state and darker interactive emphasis.</p>
+            </div>
+            <div class="swatch">
+              <div class="swatch-chip bg-accent"></div>
+              <strong>Warm Gold</strong>
+              <span>#F0B44C</span>
+              <p>Achievement accents, progress, and premium highlights.</p>
+            </div>
+            <div class="swatch">
+              <div class="swatch-chip bg-muted"></div>
+              <strong>Slate Copy</strong>
+              <span>#5D667A</span>
+              <p>Body text, helper text, and lower emphasis labels.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <span class="eyebrow">Typography</span>
+            <h2>Google Fonts</h2>
+            <p>Sora carries the brand personality. Manrope keeps everything readable and calm.</p>
+          </div>
+
+          <div class="type-grid">
+            <article class="type-card">
+              <span class="type-label">Heading font</span>
+              <h3 class="font-sora">Sora</h3>
+              <p class="font-sora large-sample">Examigo gets you ready.</p>
+              <p>Use 700 or 800 for hero headlines and section anchors.</p>
+            </article>
+
+            <article class="type-card">
+              <span class="type-label">Body font</span>
+              <h3 class="font-manrope">Manrope</h3>
+              <p class="font-manrope medium-sample">
+                Built for paragraphs, labels, helper text, input content, and navigation.
+              </p>
+              <p>Use 400 for default copy and 600 for support emphasis.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <span class="eyebrow">Buttons</span>
+            <h2>Button system</h2>
+            <p>Buttons should feel roomy, friendly, and obvious. Default radius stays pill-shaped.</p>
+          </div>
+
+          <div class="component-map">
+            <div class="component-card">
+              <span class="component-label">Primary full width</span>
+              <button class="ui-button primary full">
+                <span class="icon">↑</span>
+                Upload document
+              </button>
+              <p>Height 58-62px. Use for primary flows and single obvious actions.</p>
+            </div>
+
+            <div class="component-card">
+              <span class="component-label">Secondary full width</span>
+              <button class="ui-button secondary full">
+                <span class="icon">✦</span>
+                Save pasted notes
+              </button>
+              <p>Use on mint-wash background with dark text for calmer secondary actions.</p>
+            </div>
+
+            <div class="component-card">
+              <span class="component-label">Ghost / text action</span>
+              <button class="ui-button ghost">Maybe later</button>
+              <p>Use for dismissive or less important choices. Keep it quiet but still readable.</p>
+            </div>
+
+            <div class="component-card">
+              <span class="component-label">Icon + label row</span>
+              <div class="button-row">
+                <button class="ui-button secondary compact">
+                  <span class="icon"></span>
+                  Apple
+                </button>
+                <button class="ui-button ghost compact">
+                  <span class="icon">G</span>
+                  Google
+                </button>
+              </div>
+              <p>Good for authentication or multi-option utility rows.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <span class="eyebrow">Fields</span>
+            <h2>Inputs and content fields</h2>
+            <p>Inputs should feel soft, paper-like, and never overly sharp or technical.</p>
+          </div>
+
+          <div class="component-map">
+            <div class="component-card">
+              <span class="component-label">Text field</span>
+              <label class="field-label" for="first-name">First name</label>
+              <input id="first-name" class="ui-field" type="text" placeholder="Enter your first name" />
+            </div>
+
+            <div class="component-card">
+              <span class="component-label">Textarea</span>
+              <label class="field-label" for="notes">Notes</label>
+              <textarea id="notes" class="ui-field textarea" placeholder="Paste notes or a study script here..."></textarea>
+            </div>
+
+            <div class="component-card">
+              <span class="component-label">Upload card</span>
+              <div class="upload-card">
+                <span class="upload-icon">⤴</span>
+                <strong>Drop a document here</strong>
+                <p>PDF, DOCX, TXT or pasted notes.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <span class="eyebrow">Choosers</span>
+            <h2>Radio cards and badges</h2>
+            <p>These are useful for onboarding, topic selection, filter states, and compact preference input.</p>
+          </div>
+
+          <div class="chooser-grid">
+            <article class="component-card">
+              <span class="component-label">Radio card chooser</span>
+              <div class="radio-stack">
+                <label class="radio-card selected">
+                  <span>
+                    <strong>Quiz mode</strong>
+                    <small>Fast validation of weak concepts.</small>
+                  </span>
+                  <em>✓</em>
+                </label>
+                <label class="radio-card">
+                  <span>
+                    <strong>AI oral call</strong>
+                    <small>Exam simulation with interruption flow.</small>
+                  </span>
+                  <em></em>
+                </label>
+                <label class="radio-card">
+                  <span>
+                    <strong>Flashcards</strong>
+                    <small>Light repetition and review rhythm.</small>
+                  </span>
+                  <em></em>
+                </label>
+              </div>
+            </article>
+
+            <article class="component-card">
+              <span class="component-label">Badge chooser</span>
+              <div class="badge-row">
+                <span class="badge active">DOCX</span>
+                <span class="badge">1310 words</span>
+                <span class="badge">Mixed language</span>
+                <span class="badge strong">Strong extraction</span>
+                <span class="badge premium">Premium</span>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="section-head">
+            <span class="eyebrow">Reference rules</span>
+            <h2>Keep using these patterns</h2>
+          </div>
+
+          <div class="rules-grid">
+            <article class="rule-card">
+              <strong>Cards</strong>
+              <p>Rounded 22-30px, off-white fill, soft border, subtle warm shadow.</p>
+            </article>
+            <article class="rule-card">
+              <strong>Spacing</strong>
+              <p>Generous vertical rhythm. Let hero, cards, and sections breathe.</p>
+            </article>
+            <article class="rule-card">
+              <strong>Icons</strong>
+              <p>Outline icons by default. Use teal for active and ink for neutral.</p>
+            </article>
+            <article class="rule-card">
+              <strong>Mascot placement</strong>
+              <p>Hero moments, onboarding wow states, empty states, completion moments.</p>
+            </article>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

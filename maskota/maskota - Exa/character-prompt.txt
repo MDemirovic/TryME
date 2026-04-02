@@ -1,0 +1,155 @@
+{
+  "character_id": "exa_mascot_v1",
+  "name": "Exa",
+  "type": "mascot_avatar",
+  "core_identity": {
+    "species": "cute fluffy chibi creature",
+    "silhouette": "short, compact, rounded body with oversized head and wide fluffy side tufts",
+    "vibe": "smart, calm, curious, soft, focused learner",
+    "style": "clean neon-glow mascot illustration"
+  },
+  "appearance": {
+    "body_color": "#05090B",
+    "outline_glow_color": "#4EF2F7",
+    "secondary_glow_color": "#8AFFFF",
+    "shape_language": [
+      "rounded",
+      "soft",
+      "fluffy",
+      "cute",
+      "slightly spiky hair tuft on top"
+    ],
+    "fur": {
+      "texture": "soft fluffy fur",
+      "detail_level": "stylized, clean, not overly realistic"
+    },
+    "head": {
+      "size_ratio": "large head, small body",
+      "top_tuft": "one prominent central spiky tuft",
+      "side_tufts": "large ear-like fluffy side shapes"
+    },
+    "face": {
+      "eyes": {
+        "size": "large oversized eyes",
+        "shape": "rounded oval anime-style eyes",
+        "iris_color": "#8AFFFF",
+        "pupil_color": "#05090B",
+        "glow": true,
+        "expression_default": "focused, curious, gentle"
+      },
+      "mouth": {
+        "size": "small",
+        "style": "minimal simple line mouth",
+        "color": "#4EF2F7",
+        "default_expression": "slightly open or subtle neutral curve, never aggressive"
+      }
+    },
+    "limbs": {
+      "arms": "short rounded paws",
+      "legs": "short stubby legs",
+      "paws": "soft rounded shapes"
+    }
+  },
+  "signature_elements": {
+    "floating_symbols": [
+      "E=mc²",
+      "A+",
+      "abc",
+      "+",
+      "small geometric symbols"
+    ],
+    "symbols_style": "small glowing cyan academic symbols floating around head",
+    "book": {
+      "default_present": true,
+      "style": "small open glowing book",
+      "glow_color": "#4EF2F7"
+    }
+  },
+  "expression_rules": {
+    "allowed": [
+      "focused",
+      "curious",
+      "gentle",
+      "learning",
+      "calm",
+      "slightly happy",
+      "soft wonder"
+    ],
+    "forbidden": [
+      "angry",
+      "evil",
+      "menacing",
+      "hyper-excited",
+      "wide exaggerated grin",
+      "sad"
+    ]
+  },
+  "pose_rules": {
+    "default_pose": "standing upright, facing forward, holding or looking at an open book",
+    "body_language": "calm, centered, balanced, slightly tucked arms",
+    "head_direction": "front-facing or slightly tilted toward the book",
+    "reading_pose": "eyes directed toward the book, mouth slightly open as if learning"
+  },
+  "rendering_style": {
+    "art_style": "2D polished mascot illustration",
+    "finish": "clean, high contrast, soft neon bloom",
+    "linework": "clean stylized edges with glowing cyan outline",
+    "shading": "minimal soft shading",
+    "detail": "simple but premium, not cluttered",
+    "consistency_priority": "preserve silhouette, face proportions, glow colors, and expression"
+  },
+  "color_palette": {
+    "primary_dark": "#05090B",
+    "cyan_outline": "#4EF2F7",
+    "soft_cyan": "#8AFFFF",
+    "highlight": "#C8FFFF"
+  },
+  "background_rules": {
+    "default_background": "transparent",
+    "allowed_backgrounds": [
+      "transparent",
+      "solid black",
+      "very dark subtle gradient"
+    ],
+    "forbidden_backgrounds": [
+      "busy scene",
+      "realistic environment",
+      "daylight setting"
+    ]
+  },
+  "composition_rules": {
+    "framing": "centered character",
+    "camera": "front view or slight 3/4 view",
+    "negative_space": "enough clean empty space around the mascot",
+    "do_not_crop": [
+      "top tuft",
+      "side tufts",
+      "feet",
+      "floating symbols"
+    ]
+  },
+  "negative_prompt": [
+    "angry expression",
+    "evil face",
+    "realistic animal anatomy",
+    "human proportions",
+    "extra limbs",
+    "different color palette",
+    "warm colors",
+    "heavy texture noise",
+    "background scenery",
+    "photorealistic style",
+    "overly complex costume",
+    "sharp teeth",
+    "aggressive pose"
+  ],
+  "reference_prompt_short": "A small cute fluffy chibi mascot creature named Exa, black body with glowing cyan neon outline, large glowing cyan eyes, oversized head, soft fluffy side tufts, one central spiky hair tuft, minimal small cyan mouth, calm curious learning expression, standing upright, clean polished 2D mascot illustration, floating academic symbols like E=mc², A+, abc around the head, transparent background, centered composition, preserve the same silhouette and proportions.",
+  "reference_prompt_reading": "Exa, the same cute fluffy black chibi mascot with glowing cyan outline and large cyan eyes, standing upright and looking at a small glowing open book as if learning, mouth slightly open in a subtle focused way, not happy, not angry, calm curious academic vibe, floating E=mc², A+, abc symbols around the head, clean premium 2D neon mascot illustration, transparent background.",
+  "consistency_notes": [
+    "Always preserve black body and cyan neon outline",
+    "Always preserve large glowing eyes and fluffy silhouette",
+    "Never redesign the head shape",
+    "Never change the mascot into another species or style",
+    "Keep it cute, soft, academic, and minimal"
+  ]
+}

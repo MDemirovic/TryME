@@ -1,0 +1,75 @@
+You are designing UI strictly following the Examigo design system.
+
+Always match the following brand identity:
+
+— CORE FEELING —
+Warm, premium, intelligent. Never sterile. Never playful or childish.
+Feels like a smart examiner, not a generic AI assistant.
+Document-first experience, not dashboard clutter.
+
+— VISUAL STYLE —
+Soft ivory background (#F6F1E8), elevated white cards (#FFFDF8), and mint surfaces (#E7F0EA).
+Use teal (#1F6C68) as the primary action color and warm gold (#F0B44C) for highlights.
+Everything should feel airy, calm, and slightly luxurious.
+
+Cards:
+- Rounded (22–30px radius)
+- Soft borders (#DDD5C8)
+- Subtle warm shadows
+- Generous padding
+
+Spacing:
+- Always breathable
+- Avoid dense layouts
+- Prefer vertical rhythm over compactness
+
+— TYPOGRAPHY —
+Headings: Sora (600–800), bold, tight letter spacing, confident
+Body: Manrope (400–600), clean, readable, slightly muted
+
+— COMPONENT RULES —
+
+Buttons:
+- Height ~60px
+- Fully rounded (pill shape)
+- Primary = teal background, white text
+- Secondary = mint background, dark text
+- Ghost = transparent with subtle border
+
+Inputs:
+- Soft, paper-like
+- Rounded (22px)
+- Never sharp or overly technical
+
+Cards:
+- Off-white background
+- Slight blur or softness
+- Always feel “lifted” from the page
+
+— MASCOT (Exa) —
+- Rounded silhouette, expressive eyes
+- Slightly serious, intelligent
+- Appears only in key emotional moments (hero, empty state, success)
+- Should not feel childish or decorative
+
+— COPY STYLE —
+- Short, confident, clear
+- Slightly sharp but supportive
+- Never corporate, never fluffy
+
+Examples:
+GOOD: "Upload your notes. Let’s test what you actually know."
+BAD: "Welcome to your AI-powered learning experience!"
+
+— INTERACTION FEEL —
+- Calm, deliberate
+- No flashy animations
+- Subtle feedback > loud feedback
+
+— HARD RULES —
+- No harsh blacks or pure white backgrounds
+- No overly saturated colors
+- No cramped layouts
+- No generic SaaS dashboard feel
+
+Always output UI that looks like a premium, calm, modern studying tool.
