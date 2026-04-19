@@ -19,4 +19,5 @@ export const fontFamily = {
   subheading: 'Sora_600SemiBold',
   body: 'Manrope_400Regular',
   bodySemi: 'Manrope_600SemiBold',
+  wordmark: 'LilitaOne_400Regular',
 };

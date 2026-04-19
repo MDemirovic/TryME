@@ -30,6 +30,17 @@
 - Brand state today: no final name/domain/assets yet.
 - Store accounts today: Apple Developer and Google Play accounts not yet set up.
 
+## Typography Lock (Mandatory)
+
+- Do not introduce new font families unless explicitly requested by the user.
+- Always use the same typography system as the first app screen:
+- `Sora_700Bold` for major headings.
+- `Sora_600SemiBold` for subheadings and button emphasis.
+- `Manrope_400Regular` for body text.
+- `Manrope_600SemiBold` for stronger body labels.
+- `LilitaOne_400Regular` only for wordmark/brand moments.
+- The local mascot font source is locked to `font/Lilita_One/LilitaOne-Regular.ttf`.
+
 ## V1 Product Scope
 
 - `Onboarding`: value prop, permission education, first upload prompt, first generated output.

@@ -1,14 +1,14 @@
-import { Manrope_400Regular, Manrope_600SemiBold } from '@expo-google-fonts/manrope';
-import { Sora_600SemiBold, Sora_700Bold } from '@expo-google-fonts/sora';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import 'react-native-reanimated';
+import { Manrope_400Regular, Manrope_600SemiBold } from "@expo-google-fonts/manrope";
+import { Sora_600SemiBold, Sora_700Bold } from "@expo-google-fonts/sora";
+import { useFonts } from "expo-font";
+import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import "react-native-reanimated";
 
-import { AppProvider } from '@/src/context/AppContext';
+import { AuthProvider } from "@/src/providers/AuthProvider";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -18,6 +18,7 @@ export default function RootLayout() {
     Manrope_600SemiBold,
     Sora_600SemiBold,
     Sora_700Bold,
+    LilitaOne_400Regular: require("../font/Lilita_One/LilitaOne-Regular.ttf"),
   });
 
   useEffect(() => {
@@ -38,32 +39,28 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <AppProvider>
+      <AuthProvider>
         <Stack
           screenOptions={{
             headerShown: false,
-            contentStyle: { backgroundColor: '#F6F1E8' },
-            animation: 'fade_from_bottom',
-          }}>
+            contentStyle: { backgroundColor: "#F6F1E8" },
+            animation: "fade_from_bottom",
+          }}
+        >
           <Stack.Screen name="index" />
-          <Stack.Screen name="paywall" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(onboarding)" />
           <Stack.Screen name="(main)" />
           <Stack.Screen
-            name="quiz"
-            options={{
-              presentation: 'modal',
-              animation: 'slide_from_bottom',
-            }}
+            name="document/[documentId]"
+            options={{ animation: "slide_from_right" }}
           />
-          <Stack.Screen
-            name="call"
-            options={{
-              animation: 'slide_from_right',
-            }}
-          />
+          <Stack.Screen name="quiz" />
+          <Stack.Screen name="call" />
+          <Stack.Screen name="paywall" />
         </Stack>
         <StatusBar style="dark" />
-      </AppProvider>
+      </AuthProvider>
     </GestureHandlerRootView>
   );
 }
